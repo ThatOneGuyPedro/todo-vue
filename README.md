@@ -16,6 +16,8 @@ npm install
 npm run dev
 ```
 
-## License
-
-This project is licensed under the [LICENSE](LICENSE).
+## What Was Added
+- An option to give a task a time duration
+- Timer related buttons (start, pause, reset)
+- A notification when the timer finishes
+- Makes use of local storage to keep track of tasks between sessions
