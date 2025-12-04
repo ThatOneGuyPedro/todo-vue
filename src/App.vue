@@ -9,18 +9,34 @@
           :label="item.label"
           :done="item.done"
           :id="item.id"
+          :duration="item.duration"
+          :timeRemaining="item.timeRemaining"
+          :timerRunning="item.timerRunning"
           @checkbox-changed="updateDoneStatus(item.id)"
           @item-deleted="deleteToDo(item.id)"
-          @item-edited="editToDo(item.id, $event)">
+          @item-edited="editToDo(item.id, $event)"
+          @timer-started="startTimer(item.id)"
+          @timer-paused="pauseTimer(item.id)"
+          @timer-reset="resetTimer(item.id)">
         </to-do-item>
       </li>
     </ul>
+    <toast-notification
+      v-for="(notification, index) in notifications"
+      :key="index"
+      :message="notification.message"
+      :type="notification.type"
+      :duration="notification.duration"
+      @close="removeNotification(index)"
+      :style="{ top: `${2 + index * 6}rem` }">
+    </toast-notification>
   </div>
 </template>
 
 <script>
 import ToDoItem from "./components/ToDoItem.vue";
 import ToDoForm from "./components/ToDoForm.vue";
+import ToastNotification from "./components/ToastNotification.vue";
 import { nanoid } from "nanoid";
 
 export default {
@@ -28,42 +44,117 @@ export default {
   components: {
     ToDoItem,
     ToDoForm,
+    ToastNotification,
   },
   data() {
     return {
-      ToDoItems: [
-        { id: "todo-" + nanoid(), label: "Learn Vue", done: false },
-        {
-          id: "todo-" + nanoid(),
-          label: "Create a Vue project with the CLI",
-          done: true,
-        },
-        { id: "todo-" + nanoid(), label: "Have fun", done: true },
-        { id: "todo-" + nanoid(), label: "Create a to-do list", done: false },
-      ],
+      ToDoItems: [],
+      notifications: [],
     };
   },
+  mounted() {
+    this.loadFromLocalStorage();
+  },
   methods: {
-    addToDo(toDoLabel) {
+    addToDo(toDoData) {
       this.ToDoItems.push({
         id: "todo-" + nanoid(),
-        label: toDoLabel,
+        label: typeof toDoData === 'string' ? toDoData : toDoData.label,
         done: false,
+        duration: typeof toDoData === 'object' ? toDoData.duration : null,
+        timeRemaining: typeof toDoData === 'object' && toDoData.duration ? toDoData.duration * 60 : null,
+        timerRunning: false,
       });
+      this.saveToLocalStorage();
     },
     updateDoneStatus(toDoId) {
       const toDoToUpdate = this.ToDoItems.find((item) => item.id === toDoId);
       toDoToUpdate.done = !toDoToUpdate.done;
+      this.saveToLocalStorage();
     },
     deleteToDo(toDoId) {
       const itemIndex = this.ToDoItems.findIndex((item) => item.id === toDoId);
       this.ToDoItems.splice(itemIndex, 1);
       this.$refs.listSummary.focus();
+      this.saveToLocalStorage();
     },
     editToDo(toDoId, newLabel) {
       const toDoToEdit = this.ToDoItems.find((item) => item.id === toDoId);
       toDoToEdit.label = newLabel;
+      this.saveToLocalStorage();
     },
+    startTimer(toDoId) {
+      const item = this.ToDoItems.find((item) => item.id === toDoId);
+      if (!item || !item.duration || item.timerRunning) return;
+
+      item.timerRunning = true;
+      item.timerInterval = setInterval(() => {
+        if (item.timeRemaining > 0) {
+          item.timeRemaining--;
+          this.saveToLocalStorage();
+        } else {
+          this.pauseTimer(toDoId);
+          this.showNotification(`Time's up for: ${item.label}`, 'timer', 6000);
+        }
+      }, 1000);
+    },
+    pauseTimer(toDoId) {
+      const item = this.ToDoItems.find((item) => item.id === toDoId);
+      if (!item) return;
+
+      item.timerRunning = false;
+      if (item.timerInterval) {
+        clearInterval(item.timerInterval);
+        item.timerInterval = null;
+      }
+      this.saveToLocalStorage();
+    },
+    resetTimer(toDoId) {
+      const item = this.ToDoItems.find((item) => item.id === toDoId);
+      if (!item || !item.duration) return;
+
+      this.pauseTimer(toDoId);
+      item.timeRemaining = item.duration * 60;
+      this.saveToLocalStorage();
+    },
+    showNotification(message, type = 'success', duration = 4000) {
+      this.notifications.push({ message, type, duration });
+    },
+    removeNotification(index) {
+      this.notifications.splice(index, 1);
+    },
+    saveToLocalStorage() {
+      const itemsToSave = this.ToDoItems.map(item => ({
+        id: item.id,
+        label: item.label,
+        done: item.done,
+        duration: item.duration,
+        timeRemaining: item.timeRemaining,
+      }));
+      localStorage.setItem('todoItems', JSON.stringify(itemsToSave));
+    },
+    loadFromLocalStorage() {
+      const saved = localStorage.getItem('todoItems');
+      if (saved) {
+        try {
+          const items = JSON.parse(saved);
+          this.ToDoItems = items.map(item => ({
+            ...item,
+            timerRunning: false,
+            timerInterval: null,
+          }));
+        } catch (e) {
+          console.error('Failed to load todos from localStorage:', e);
+        }
+      }
+    },
+  },
+  beforeUnmount() {
+    this.ToDoItems.forEach(item => {
+      if (item.timerInterval) {
+        clearInterval(item.timerInterval);
+      }
+    });
   },
   computed: {
     listSummary() {
