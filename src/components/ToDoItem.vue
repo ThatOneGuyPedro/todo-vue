@@ -7,8 +7,41 @@
         :id="id"
         :checked="isDone"
         @change="$emit('checkbox-changed')" />
-      <label :for="id" class="checkbox-label">{{ label }}</label>
+      <label :for="id" class="checkbox-label">
+        {{ label }}
+        <span v-if="duration" class="duration-badge">{{ duration }} min</span>
+      </label>
     </div>
+
+    <div v-if="duration" class="timer-section" :class="{ 'timer-running': timerRunning }">
+      <div class="timer-display">
+        <span class="timer-icon">⏱️</span>
+        <span class="timer-text">{{ formattedTimeRemaining }}</span>
+      </div>
+      <div class="timer-controls">
+        <button
+          v-if="!timerRunning"
+          type="button"
+          class="btn btn-timer btn-start"
+          @click="startTimer">
+          Start
+        </button>
+        <button
+          v-else
+          type="button"
+          class="btn btn-timer btn-pause"
+          @click="pauseTimer">
+          Pause
+        </button>
+        <button
+          type="button"
+          class="btn btn-timer btn-reset"
+          @click="resetTimer">
+          Reset
+        </button>
+      </div>
+    </div>
+
     <div class="btn-group">
       <button
         type="button"
@@ -43,6 +76,9 @@ export default {
     label: { required: true, type: String },
     done: { default: false, type: Boolean },
     id: { required: true, type: String },
+    duration: { default: null, type: Number },
+    timeRemaining: { default: null, type: Number },
+    timerRunning: { default: false, type: Boolean },
   },
   data() {
     return {
@@ -52,6 +88,12 @@ export default {
   computed: {
     isDone() {
       return this.done;
+    },
+    formattedTimeRemaining() {
+      if (this.timeRemaining === null) return null;
+      const minutes = Math.floor(this.timeRemaining / 60);
+      const seconds = this.timeRemaining % 60;
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     },
   },
   methods: {
@@ -77,11 +119,113 @@ export default {
         editButtonRef.focus();
       });
     },
+    startTimer() {
+      this.$emit("timer-started");
+    },
+    pauseTimer() {
+      this.$emit("timer-paused");
+    },
+    resetTimer() {
+      this.$emit("timer-reset");
+    },
   },
 };
 </script>
 
 <style scoped>
+.duration-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  background-color: #228bec;
+  color: white;
+  border-radius: 0.3rem;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.timer-section {
+  background-color: #f5f5f5;
+  border: 2px solid #ddd;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  transition: all 0.3s ease;
+}
+
+.timer-section.timer-running {
+  background-color: #e8f5e9;
+  border-color: #4caf50;
+}
+
+.timer-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+
+.timer-icon {
+  font-size: 2rem;
+}
+
+.timer-text {
+  font-family: monospace;
+  color: #333;
+}
+
+.timer-running .timer-text {
+  color: #2e7d32;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-timer {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  min-width: 4.5rem;
+}
+
+.btn-start {
+  background-color: #4caf50;
+  color: white;
+  border-color: #45a049;
+}
+
+.btn-start:hover {
+  background-color: #45a049;
+}
+
+.btn-pause {
+  background-color: #ff9800;
+  color: white;
+  border-color: #e68900;
+}
+
+.btn-pause:hover {
+  background-color: #e68900;
+}
+
+.btn-reset {
+  background-color: #757575;
+  color: white;
+  border-color: #616161;
+}
+
+.btn-reset:hover {
+  background-color: #616161;
+}
+
 .custom-checkbox > .checkbox-label {
   font-family: Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
